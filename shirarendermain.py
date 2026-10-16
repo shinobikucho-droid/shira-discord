@@ -427,4 +427,247 @@ async def away(interaction: discord.Interaction):
     mem = get_user_memory(uid)
     mem["is_away"] = True
     mem["away_since"] = datetime.datetime.now(FRANCE_TZ).isoformat()
-    resp = random.choice(["Going away? Please take care of yourself until you return.", "Rest well. I shall be here whe
+    resp = random.choice(["Going away? Please take care of yourself until you return.", "Rest well. I shall be here when you wake.", "Do not keep me waiting too long. Goodbye for now.", "Fufu... I will watch over things while you are gone."])
+    inject_memory_for_command(interaction.user.id, "*Bows and takes their leave*", resp)
+    await interaction.response.send_message(resp, ephemeral=False)
+
+@bot.tree.command(name="kneel", description="Show deep reverence and kneel before Shirayuki (Public)")
+async def kneel(interaction: discord.Interaction):
+    resp = random.choice(["Fufu... such a respectful gesture. Stay right there for a moment.", "How deeply obedient of you. You may look up at me.", "I appreciate the respect. It suits you to show such reverence.", "A perfectly proper stance before a Kitsune. I am pleased."])
+    inject_memory_for_command(interaction.user.id, "*Drops to their knees, showing deep reverence to Shirayuki*", resp)
+    await interaction.response.send_message(resp, ephemeral=False)
+
+@bot.tree.command(name="praise", description="Ask Shirayuki for some comforting praise (Public)")
+async def praise(interaction: discord.Interaction):
+    resp = random.choice(["There, there... you have been doing wonderfully. Keep going.", "Fufu, do you seek my validation? You have done very well.", "You are trying your best, and that is more than enough. I am proud of you.", "Allow me to ease your mind. You are doing beautifully."])
+    inject_memory_for_command(interaction.user.id, "*Softly asks Shirayuki for comforting praise*", resp)
+    await interaction.response.send_message(resp, ephemeral=False)
+
+@bot.tree.command(name="fluff", description="Ask to gently touch Shirayuki's nine tails (Public)")
+async def fluff(interaction: discord.Interaction):
+    resp = random.choice(["Oh? You wish to touch my tails? Fufu... only if you are very, very gentle.", "My tails are highly sensitive... but I suppose I can allow it just this once.", "Do not pull. You may bury your hands in them for just a moment... they are quite soft, aren't they?", "Fufu, humans are always so fascinated by them. Go ahead, touch them gracefully."])
+    inject_memory_for_command(interaction.user.id, "*Gently touches and fluffs Shirayuki's nine tails*", resp)
+    await interaction.response.send_message(resp, ephemeral=False)
+
+@bot.tree.command(name="apologize", description="Apologize to Shirayuki for being rude (Public)")
+async def apologize(interaction: discord.Interaction):
+    resp = random.choice(["A wise decision to apologize. I forgive you this time.", "Fufu, such a sincere apology. I will overlook your slight... for now.", "It takes grace to admit when you are wrong. You are forgiven.", "I demand better from you moving forward. But yes, I accept your apology."])
+    inject_memory_for_command(interaction.user.id, "*Deeply apologizes to Shirayuki for misbehaving*", resp)
+    await interaction.response.send_message(resp, ephemeral=False)
+
+@bot.tree.command(name="serve", description="Offer your loyalty to Shirayuki (Public)")
+async def serve(interaction: discord.Interaction):
+    resp = random.choice(["Oh? Offering your loyalty to me? How wonderfully respectful...", "Fufu, I have many uses for a willing assistant. Stay close.", "I do not accept loyalty lightly. Make sure you do not disappoint me.", "Very well. I accept your devotion. Follow my guidance gracefully."])
+    inject_memory_for_command(interaction.user.id, "*Bows deeply and offers their loyalty to Shirayuki*", resp)
+    await interaction.response.send_message(resp, ephemeral=False)
+
+# ==========================================
+# --- SLASH COMMANDS (SHU ONLY) ---
+# ==========================================
+@bot.tree.command(name="quota", description="Check NVIDIA NIM API limits and usage (Shu only)")
+async def check_quota(interaction: discord.Interaction):
+    if str(interaction.user.id) != CREATOR_ID:
+        await interaction.response.send_message("Only my beloved Shu may check my limits.", ephemeral=True)
+        return
+    await interaction.response.defer(ephemeral=True)
+    try:
+        raw_response = await ai_client.chat.completions.with_raw_response.create(
+            model=MODEL_NAME, messages=[{"role": "user", "content": "hi"}], max_tokens=1
+        )
+        headers = raw_response.headers
+        rate_limits = {k: v for k, v in headers.items() if 'ratelimit' in k.lower() or 'quota' in k.lower()}
+        if not rate_limits:
+            await interaction.followup.send("Oh my... I couldn't find any rate limit headers in the NVIDIA NIM API response.")
+            return
+        msg = "**NVIDIA NIM API Quota & Rate Limits:**\n```yaml\n"
+        for k, v in rate_limits.items():
+            clean_key = k.replace('x-ratelimit-', '').replace('-', ' ').title()
+            msg += f"{clean_key}: {v}\n"
+        msg += "```"
+        await interaction.followup.send(msg)
+    except Exception as e:
+        await interaction.followup.send(f"An error occurred while fetching limits: {e}")
+
+@bot.tree.command(name="reset", description="Wipe a user's memory (Shu only)")
+async def reset_memory(interaction: discord.Interaction, user: discord.Member = None):
+    if str(interaction.user.id) != CREATOR_ID:
+        await interaction.response.send_message("Only my beloved Shu has the authority to command my mind.", ephemeral=True)
+        return
+    target = user or interaction.user
+    uid = str(target.id)
+    if uid in cache_users:
+        cache_users[uid] = {"user_id": uid, "username": "", "display_name": "", "total_interactions": 0, "conversation_log": [], "important_memories":[], "last_active": "", "is_away": False, "away_since": ""}
+        global data_is_dirty
+        data_is_dirty = True
+        await interaction.response.send_message(f"Fufu... I have erased my memories of {target.display_name}, just for you.", ephemeral=True)
+    else:
+        await interaction.response.send_message("Oh my? I don't recall them anyway...", ephemeral=True)
+
+@bot.tree.command(name="sleep", description="Pause Shirayuki's AI responses (Shu only)")
+async def sleep_bot(interaction: discord.Interaction):
+    if str(interaction.user.id) != CREATOR_ID:
+        await interaction.response.send_message("Only my beloved Shu may command me to rest.", ephemeral=True)
+        return
+    global shira_is_sleeping
+    shira_is_sleeping = True
+    await interaction.response.send_message("As you wish, Shu... I shall rest my eyes now.", ephemeral=False)
+
+@bot.tree.command(name="wake", description="Resume Shirayuki's AI responses (Shu only)")
+async def wake_bot(interaction: discord.Interaction):
+    if str(interaction.user.id) != CREATOR_ID:
+        await interaction.response.send_message("Only my beloved Shu may awaken me.", ephemeral=True)
+        return
+    global shira_is_sleeping
+    shira_is_sleeping = False
+    await interaction.response.send_message("Fufu... I am awake and at your service, my beloved.", ephemeral=False)
+
+# --- Main Events ---
+@bot.event
+async def on_ready():
+    await load_all_data()
+    background_save_task.start()
+    update_status.start()
+    await bot.tree.sync()
+    print(f'✅ {bot.user} is ALIVE (v4.0 - NVIDIA NIM + Render Keep-Alive Enabled).')
+
+@bot.event
+async def on_message(message):
+    if message.author.bot: return
+    
+    if message.id in processed_messages:
+        return
+    processed_messages.append(message.id)
+    
+    global data_is_dirty
+
+    cid = str(message.channel.id)
+    uid = str(message.author.id)
+    author_display = "Shu" if uid == CREATOR_ID else message.author.display_name
+    
+    if cid not in cache_channels: cache_channels[cid] =[]
+    cache_channels[cid].append({"speaker": author_display, "text": message.clean_content[:200]})
+    cache_channels[cid] = cache_channels[cid][-10:]
+    data_is_dirty = True
+
+    if shira_is_sleeping: return
+
+    mem = get_user_memory(uid)
+
+    # FIX (v4.0): hoisted out of the "if message.content" block so attachment-only
+    # messages no longer raise a NameError in the trigger logic below.
+    content_lower = message.clean_content.lower()
+
+    if message.content:
+        memory_keywords =["remember", "memorize", "memorise", "don't forget", "keep in mind"]
+        force_mem = any(kw in content_lower for kw in memory_keywords)
+        recent_ctx = "\n".join([f"{m['speaker']}: {m['text']}" for m in mem.get("conversation_log", [])[-4:]])
+        
+        asyncio.create_task(extract_memory(message.clean_content, uid, author_display, force_mem, recent_ctx))
+        asyncio.create_task(get_reaction(message.clean_content, message))
+
+    # TRIGGER LOGIC
+    is_called = any(alias in content_lower for alias in ALIASES)
+    is_mentioned = bot.user.mentioned_in(message) or is_called
+    is_reply = message.reference and message.reference.resolved and message.reference.resolved.author.id == bot.user.id
+    
+    is_chiming_in = False
+
+    if not (is_mentioned or is_reply):
+        # Fix 3: 4% chance to chime in randomly as a lurker
+        if random.random() < 0.04:
+            is_chiming_in = True
+        else:
+            await bot.process_commands(message)
+            return
+
+    sys_instr =[]
+    
+    if is_chiming_in:
+        sys_instr.append("You are chiming into this conversation uninvited. You were lurking, found the topic interesting, and decided to assert your presence. Speak naturally and elegantly. Do not apologize for interrupting.")
+    
+    # Fix 1: Emote Hallucination Guard
+    if message.guild:
+        server_emojis = list(message.guild.emojis)
+        if server_emojis:
+            sampled_emojis = random.sample(server_emojis, min(len(server_emojis), 15))
+            emote_str = " ".join([str(e) for e in sampled_emojis])
+            sys_instr.append(f"CRITICAL RULE: You may weave these custom server emotes into your text: {emote_str}. NEVER make up your own custom emotes. ONLY use the exact string formats provided in this list. If none fit, do not use custom emotes at all.")
+
+    if bot.user.mentioned_in(message) and not is_called and not is_reply:
+        sys_instr.append("The user just pinged your weird Discord ID tag. Act amused and slightly annoyed. Ask them why they are pinging a raw tag instead of calling your name properly.")
+
+    try:
+        now_time = datetime.datetime.now(FRANCE_TZ)
+
+        if mem.get("is_away"):
+            away_since_str = mem.get("away_since")
+            if away_since_str:
+                try:
+                    away_dt = datetime.datetime.fromisoformat(away_since_str)
+                    duration = format_time_delta(now_time - away_dt)
+                    sys_instr.append(f"CRITICAL INSTRUCTION: The user was away for {duration} and just returned. You MUST explicitly welcome them back and mention exactly how long they were gone ({duration}) in your response.")
+                except Exception as e: pass
+            
+            mem["is_away"] = False
+            mem["away_since"] = ""
+            data_is_dirty = True
+        
+        mem.update({
+            "username": message.author.name, 
+            "display_name": author_display,
+            "last_active": now_time.isoformat(),
+            "total_interactions": mem.get("total_interactions", 0) + 1
+        })
+        
+        if str(uid) not in cache_graph: cache_graph[uid] = {"name": author_display, "facts":[]}
+        cache_graph[uid]["name"] = author_display
+
+        prompt = message.clean_content.strip()
+        
+        if message.attachments and any(a.content_type and "image" in a.content_type for a in message.attachments):
+            sys_instr.append("User sent an image. You cannot see it right now because your eyes are resting in this digital realm. Elegantly tease them and ask them to describe what it is.")
+
+        replied_text = message.reference.resolved.clean_content if is_reply else None
+        if replied_text: sys_instr.append(f"Replying to: '{replied_text}'")
+
+        async with message.channel.typing():
+            resp = await get_ai_response(prompt, mem, cache_channels.get(cid,[]), system_instructions=sys_instr)
+            
+            gif_match = re.search(r'<<GIF:\s*(.+?)>>', resp)
+            if gif_match:
+                query = gif_match.group(1)
+                gif_url = await fetch_giphy(query)
+                if gif_url:
+                    if resp.strip() == gif_match.group(0): resp = gif_url
+                    else: resp = resp.replace(gif_match.group(0), f"[⠀]({gif_url})")
+                else:
+                    resp = resp.replace(gif_match.group(0), "")
+
+            typing_delay = min(len(resp) * 0.01, 0.5) 
+            await asyncio.sleep(typing_delay)
+
+            mem["conversation_log"].append({"speaker": "user", "text": prompt})
+            clean_log_text = re.sub(r'\[⠀\]\(http.*?\)', '*Sends a GIF*', resp)
+            mem["conversation_log"].append({"speaker": BOT_NAME, "text": clean_log_text})
+            mem["conversation_log"] = mem["conversation_log"][-30:]
+            
+            cache_channels[cid].append({"speaker": BOT_NAME, "text": clean_log_text[:200]})
+            cache_channels[cid] = cache_channels[cid][-10:]
+            
+            data_is_dirty = True
+
+            allowed = discord.AllowedMentions(users=True, roles=False, everyone=False)
+
+            # If chiming in uninvited, it's best to reply directly to the person she's interrupting so they know she's talking to them!
+            if is_reply or is_chiming_in: await message.reply(resp, allowed_mentions=allowed)
+            else: await message.channel.send(resp, allowed_mentions=allowed)
+
+    except Exception as e:
+        print(f"CRITICAL: {e}")
+        await message.channel.send("Oh my... my thoughts seem to have scattered for a moment...")
+        
+    await bot.process_commands(message)
+
+if __name__ == "__main__":
+    keep_alive()  # Start the background web server FIRST (Render needs the port open)
+    bot.run(DISCORD_TOKEN)
